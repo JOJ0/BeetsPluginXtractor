@@ -127,7 +127,6 @@ class TestHelper(TestCase, Assertions):
 
     def reset_beets(self, config_file: bytes):
         self.teardown_beets()
-        plugins._classes = {xtractor.XtractorPlugin}
         self._setup_beets(config_file)
 
     def _setup_beets(self, config_file: bytes):
@@ -142,7 +141,7 @@ class TestHelper(TestCase, Assertions):
         shutil.copyfile(config_file, self.config.user_config_path())
         self.config.read()
 
-        self.config['plugins'] = []
+        self.config['plugins'] = [PLUGIN_NAME]
         self.config['verbose'] = True
         self.config['ui']['color'] = False
         self.config['threaded'] = False
@@ -157,7 +156,7 @@ class TestHelper(TestCase, Assertions):
         self.lib = beets.library.Library(':memory:', self.libdir)
 
         # This will initialize (create instance) of the plugins
-        plugins.find_plugins()
+        plugins.load_plugins()
 
     def teardown_beets(self):
         self.unload_plugins()
@@ -191,16 +190,15 @@ class TestHelper(TestCase, Assertions):
 
     @staticmethod
     def unload_plugins():
-        for plugin in plugins._classes:
+        for plugin in plugins._instances:
             plugin.listeners = None
-            plugins._classes = set()
-            plugins._instances = {}
+        plugins._instances = []
 
     def runcli(self, *args):
         # TODO mock stdin
         with capture_stdout() as out:
             try:
-                ui._raw_main(_convert_args(list(args)), self.lib)
+                ui._raw_main(_convert_args(list(args)))
             except ui.UserError as u:
                 # TODO remove this and handle exceptions in tests
                 print(u.args[0])
