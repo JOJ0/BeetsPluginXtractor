@@ -4,7 +4,13 @@
 #  Created: 3/12/20, 11:42 PM
 #  License: See LICENSE.txt
 
+import os
+
+from beets.library import Item
+from beets.util import displayable_path
+
 from beetsplug.xtractor import about
+from beetsplug.xtractor.command import XtractorCommand
 
 from test.helper import TestHelper, Assertions, \
     PLUGIN_NAME, PLUGIN_SHORT_DESCRIPTION, \
@@ -12,6 +18,10 @@ from test.helper import TestHelper, Assertions, \
     capture_log
 
 plg_log_ns = 'beets.{}'.format(PLUGIN_NAME)
+
+
+def _normalize_test_path(path):
+    return os.path.normpath(displayable_path(path).removeprefix('\\\\?\\'))
 
 
 class CompletionTest(TestHelper, Assertions):
@@ -57,3 +67,27 @@ class CompletionTest(TestHelper, Assertions):
             ver=PLUGIN_VERSION
         )
         self.assertIn(versioninfo, "\n".join(logs))
+
+    def test_get_input_path_for_item_with_absolute_path(self):
+        path = self.lib_path(b"absolute.flac")
+        with open(path, "wb"):
+            pass
+
+        item = Item(path=path)
+        cmd = XtractorCommand(self.config[PLUGIN_NAME])
+        cmd.lib = self.lib
+
+        self.assertEqual(os.path.normpath(path.decode()), _normalize_test_path(cmd._get_input_path_for_item(item)))
+
+    def test_get_input_path_for_item_with_relative_path(self):
+        relative_path = b"nested/relative.flac"
+        absolute_path = self.lib_path(relative_path)
+        os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+        with open(absolute_path, "wb"):
+            pass
+
+        item = Item(path=relative_path)
+        cmd = XtractorCommand(self.config[PLUGIN_NAME])
+        cmd.lib = self.lib
+
+        self.assertEqual(os.path.normpath(absolute_path.decode()), _normalize_test_path(cmd._get_input_path_for_item(item)))
