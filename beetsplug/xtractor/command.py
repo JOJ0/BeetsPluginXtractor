@@ -3,6 +3,7 @@
 #  License: See LICENSE.txt
 
 from concurrent import futures
+import contextvars
 import hashlib
 import json
 import multiprocessing
@@ -264,10 +265,15 @@ class XtractorCommand(Subcommand):
     def _execute_on_each_items(self, items, func):
         total = len(items)
         finished = 0
+        ctx = contextvars.copy_context()
+
+        def _worker(item):
+            return ctx.copy().run(func, item)
+
         with futures.ThreadPoolExecutor(max_workers=self.cfg_threads) as e:
             if total and not self.cfg_quiet:
                 self._show_progress(finished, total)
-            for _ in e.map(func, items):
+            for _ in e.map(_worker, items):
                 finished += 1
                 if not self.cfg_quiet:
                     self._show_progress(finished, total)
@@ -289,18 +295,7 @@ class XtractorCommand(Subcommand):
         return os.path.join(self._get_extraction_output_path(), output_file)
 
     def _get_input_path_for_item(self, item: Item):
-        input_path = item.get("path")
-        if isinstance(input_path, str):
-            input_path = bytestring_path(input_path)
-
-        if not os.path.isabs(os.fsdecode(input_path)):
-            library_directory = self.lib.directory
-            if isinstance(library_directory, str):
-                library_directory = bytestring_path(library_directory)
-            input_path = os.path.join(library_directory, input_path)
-
-        input_path = normpath(input_path)
-        input_path = syspath(input_path)
+        input_path = item.get("path").decode("utf-8")
 
         if not os.path.isfile(input_path):
             raise FileNotFoundError("Input file({}) not found!".format(input_path))
