@@ -110,7 +110,27 @@ The `write` option instructs the plugin to write the extracted attributes to the
 
 The `dry-run` option shows what would be done without actually doing it.
 
-**NOTE**: Please note that the `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+> [!WARNING]
+> The `auto` option is not yet implemented. For now you will have to call the xtractor plugin manually.
+
+### Coexistence with other plugins
+
+In case any of the fields used by the `xtractor` plugin conflict with other plugins, you can use the `field_rename` section to rename them. For example the danceability field is also used by [beets-vibenet](https://github.com/jaeheonshim/vibenet) but defined with a different data type which leads to a corresponding error on plugin load. `xtractor` should better write its own data to a field named `essentia_danceability`.
+
+```yaml
+    field_rename:
+        danceability: essentia_danceability
+```
+
+A slightly different use case is when a field, such as `bpm`, is normally populated by another plugin. Since `xtractor` checks by default whether such a field is already populated to decide if analysis should run on the item, you may want to set `required: no` for it in `low_level_targets`/`high_level_targets`, so `xtractor` won't keep reprocessing items whose value is expected to come from that other plugin instead.
+
+```yaml
+    low_level_targets:
+        bpm:
+            path: "rhythm.bpm"
+            type: integer
+            required: no
+```
 
 ## Usage
 
